@@ -421,8 +421,9 @@ $riskLabels = @{
     "advanced" = "Avanzado"
 }
 
-# Referencias globales a checkboxes de ajustes
-$script:sysTweakCheckboxes = @()   # @{ Chk; TweakData; StatusLabel }
+# Referencias globales
+$script:sysTweakCheckboxes = @()
+$script:sysTweakCatPanels  = @()
 
 # ============================================================
 #  PÁGINA PRINCIPAL
@@ -432,42 +433,119 @@ $pageSistema.Dock      = [System.Windows.Forms.DockStyle]::Fill
 $pageSistema.BackColor = $script:clrBackground
 $pageSistema.Visible   = $false
 
-# ─── SCROLL PANEL EXTERNO (contiene ambas secciones) ────────
-$scrollSistema = New-Object System.Windows.Forms.Panel
-$scrollSistema.Dock       = [System.Windows.Forms.DockStyle]::Fill
-$scrollSistema.AutoScroll = $true
-$scrollSistema.BackColor  = $script:clrBackground
-$scrollSistema.Padding    = New-Object System.Windows.Forms.Padding(0, 8, 0, 24)
+# ============================================================
+#  SISTEMA DE SCROLL MANUAL (mismo patrón que software.ps1)
+#  $sysViewport  → Fill, sin AutoScroll
+#    $sysVBar    → VScrollBar anclado a la derecha
+#    $sysInner   → Panel contenedor, Top = -$sysVBar.Value
+#      [toolbar de tweaks]
+#      [sep]
+#      [header "Ajustes de Windows"]
+#      [tweakBlock  ← altura variable según categorías]
+#      [header "Paneles y accesos"]
+#      [panelsBlock ← altura fija]
+# ============================================================
 
-$scrollSistema.Add_Resize({
-    foreach ($ctrl in $this.Controls) {
-        if ($ctrl -is [System.Windows.Forms.Panel]) {
-            $ctrl.Width = $this.Width - 20
+$sysViewport = New-Object System.Windows.Forms.Panel
+$sysViewport.Dock       = [System.Windows.Forms.DockStyle]::Fill
+$sysViewport.BackColor  = $script:clrBackground
+$sysViewport.AutoScroll = $false
+
+$sysVBar = New-Object System.Windows.Forms.VScrollBar
+$sysVBar.Dock        = [System.Windows.Forms.DockStyle]::Right
+$sysVBar.SmallChange = 20
+$sysVBar.LargeChange = 80
+
+$sysInner = New-Object System.Windows.Forms.Panel
+$sysInner.BackColor = $script:clrBackground
+$sysInner.Location  = New-Object System.Drawing.Point(0, 0)
+$sysInner.AutoSize  = $false
+
+# ── Funciones de scroll ──────────────────────────────────────
+function Update-SysScrollBar {
+    $contentH  = $sysInner.Height
+    $viewportH = $sysViewport.ClientSize.Height
+    $innerW    = $sysViewport.ClientSize.Width - $sysVBar.Width
+    if ($sysInner.Width -ne $innerW -and $innerW -gt 0) {
+        $sysInner.Width = $innerW
+        # Propagar ancho a hijos directos del inner
+        foreach ($ctrl in $sysInner.Controls) {
+            if ($ctrl -is [System.Windows.Forms.Panel]) { $ctrl.Width = $innerW }
         }
     }
-})
+    if ($contentH -le $viewportH) {
+        $sysVBar.Enabled = $false
+        $sysVBar.Value   = 0
+        $sysInner.Top    = 0
+    } else {
+        $sysVBar.Enabled = $true
+        $range           = $contentH - $viewportH
+        $sysVBar.Maximum = $range + $sysVBar.LargeChange - 1
+        if ($sysVBar.Value -gt $range) { $sysVBar.Value = $range }
+        $sysInner.Top    = -$sysVBar.Value
+    }
+}
+
+# Recalcula Y de cada control en sysInner y ajusta su Height total
+function Reflow-SysInner {
+    $y = 0
+    $tweakToolbar.Location      = New-Object System.Drawing.Point(0, $y); $y += 44
+    $tweakToolbarLine.Location  = New-Object System.Drawing.Point(0, $y); $y += 1
+    $tweakSectionHdr.Location   = New-Object System.Drawing.Point(0, $y); $y += 32
+    $tweakBlock.Location        = New-Object System.Drawing.Point(0, $y); $y += $tweakBlock.Height + 8
+    $panelsSectionHdr.Location  = New-Object System.Drawing.Point(0, $y); $y += 32 + 4
+    $panelsBlock.Location       = New-Object System.Drawing.Point(0, $y); $y += $panelsBlock.Height
+    $sysInner.Height            = $y + 16
+    Update-SysScrollBar
+}
+
+# Reposiciona catPanels dentro de tweakBlock y actualiza su Height
+function Reflow-TweakCats {
+    $y = 0
+    foreach ($cp in $script:sysTweakCatPanels) {
+        $cp.Location = New-Object System.Drawing.Point(0, $y)
+        $y += $cp.Height + 4
+    }
+    $tweakBlock.Height = $y + 4
+    # Al cambiar tweakBlock.Height hay que relayoutar el sysInner completo
+    Reflow-SysInner
+}
+
+$sysVBar.Add_Scroll({ $sysInner.Top = -$sysVBar.Value })
+
+$sysWheelHandler = {
+    if (-not $sysVBar.Enabled) { return }
+    $delta  = [int]($_.Delta / 120) * $sysVBar.SmallChange * 3
+    $newVal = $sysVBar.Value - $delta
+    $maxVal = $sysVBar.Maximum - $sysVBar.LargeChange + 1
+    if ($newVal -lt 0)       { $newVal = 0 }
+    if ($newVal -gt $maxVal) { $newVal = $maxVal }
+    $sysVBar.Value = $newVal
+    $sysInner.Top  = -$newVal
+}
+$sysViewport.Add_MouseWheel($sysWheelHandler)
+$sysInner.Add_MouseWheel($sysWheelHandler)
+
+$sysViewport.Add_Resize({ Update-SysScrollBar })
+
+$sysViewport.Controls.Add($sysVBar)
+$sysViewport.Controls.Add($sysInner)
 
 # ============================================================
-#  SECCIÓN 1 — AJUSTES DE WINDOWS
-#  Estructura: toolbar + categorías colapsables con checkboxes
+#  TOOLBAR DE TWEAKS
 # ============================================================
-
-# ── Toolbar de ajustes ──────────────────────────────────────
 $tweakToolbar = New-Object System.Windows.Forms.Panel
 $tweakToolbar.BackColor = $script:clrCard
 $tweakToolbar.Height    = 44
-$tweakToolbar.Location  = New-Object System.Drawing.Point(0, 0)
-$tweakToolbar.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor
-                          [System.Windows.Forms.AnchorStyles]::Left -bor
-                          [System.Windows.Forms.AnchorStyles]::Right
+$tweakToolbar.Width     = $sysInner.Width
 
 $tweakChkAll = New-Object System.Windows.Forms.CheckBox
-$tweakChkAll.Text      = "Seleccionar todo"
-$tweakChkAll.Font      = $script:fontLabel
-$tweakChkAll.ForeColor = $script:clrTextPrimary
-$tweakChkAll.AutoSize  = $true
-$tweakChkAll.Location  = New-Object System.Drawing.Point(12, 13)
-$tweakChkAll.Cursor    = [System.Windows.Forms.Cursors]::Hand
+$tweakChkAll.Text       = "Seleccionar todo"
+$tweakChkAll.Font       = $script:fontLabel
+$tweakChkAll.ForeColor  = $script:clrTextPrimary
+$tweakChkAll.AutoSize   = $true
+$tweakChkAll.Location   = New-Object System.Drawing.Point(12, 13)
+$tweakChkAll.Cursor     = [System.Windows.Forms.Cursors]::Hand
 $tweakChkAll.ThreeState = $true
 
 $tweakLblCount = New-Object System.Windows.Forms.Label
@@ -490,23 +568,16 @@ $tweakToolbar.Add_Resize({
     $btnApplyTweaks.Location = New-Object System.Drawing.Point(($this.Width - 173), 8)
 })
 
-# Línea sep bajo toolbar
 $tweakToolbarLine = New-Object System.Windows.Forms.Panel
-$tweakToolbarLine.BackColor = $script:clrBorder
 $tweakToolbarLine.Height    = 1
-$tweakToolbarLine.Location  = New-Object System.Drawing.Point(0, 44)
-$tweakToolbarLine.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor
-                              [System.Windows.Forms.AnchorStyles]::Left -bor
-                              [System.Windows.Forms.AnchorStyles]::Right
+$tweakToolbarLine.BackColor = $script:clrBorder
+$tweakToolbarLine.Width     = $sysInner.Width
 
-# ── Panel cabecera "AJUSTES DE WINDOWS" ─────────────────────
+# ── Header "Ajustes de Windows" ─────────────────────────────
 $tweakSectionHdr = New-Object System.Windows.Forms.Panel
 $tweakSectionHdr.BackColor = [System.Drawing.Color]::FromArgb(30, 33, 48)
 $tweakSectionHdr.Height    = 32
-$tweakSectionHdr.Location  = New-Object System.Drawing.Point(0, 45)
-$tweakSectionHdr.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor
-                             [System.Windows.Forms.AnchorStyles]::Left -bor
-                             [System.Windows.Forms.AnchorStyles]::Right
+$tweakSectionHdr.Width     = $sysInner.Width
 
 $tweakSectionLbl = New-Object System.Windows.Forms.Label
 $tweakSectionLbl.Text      = "  Ajustes de Windows"
@@ -517,30 +588,26 @@ $tweakSectionLbl.AutoSize  = $true
 $tweakSectionLbl.Location  = New-Object System.Drawing.Point(0, 8)
 $tweakSectionHdr.Controls.Add($tweakSectionLbl)
 
-# Contenedor para el bloque completo de ajustes
+# ── Bloque de tweaks (altura dinámica) ──────────────────────
 $tweakBlock = New-Object System.Windows.Forms.Panel
 $tweakBlock.BackColor = $script:clrBackground
-$tweakBlock.Location  = New-Object System.Drawing.Point(0, 0)
-$tweakBlock.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor
-                        [System.Windows.Forms.AnchorStyles]::Left -bor
-                        [System.Windows.Forms.AnchorStyles]::Right
+$tweakBlock.Width     = $sysInner.Width
+$tweakBlock.Height    = 0   # Reflow-TweakCats lo calculará
 
 $tweakBlock.Add_Resize({
     foreach ($ctrl in $this.Controls) {
-        if ($ctrl -is [System.Windows.Forms.Panel]) {
-            $ctrl.Width = $this.Width
-        }
+        if ($ctrl -is [System.Windows.Forms.Panel]) { $ctrl.Width = $this.Width }
     }
 })
 
-# ── Funciones de selección ───────────────────────────────────
+# ── Función de selección ─────────────────────────────────────
 function Update-TweakSelection {
     $count = ($script:sysTweakCheckboxes | Where-Object { $_.Chk.Checked }).Count
     $total = $script:sysTweakCheckboxes.Count
     if ($count -eq 1) { $tweakLblCount.Text = "1 seleccionado" }
     else              { $tweakLblCount.Text = "$count seleccionados" }
-    $tweakLblCount.ForeColor    = if ($count -gt 0) { $script:clrAccent } else { $script:clrTextMuted }
-    $btnApplyTweaks.Enabled     = ($count -gt 0)
+    $tweakLblCount.ForeColor = if ($count -gt 0) { $script:clrAccent } else { $script:clrTextMuted }
+    $btnApplyTweaks.Enabled  = ($count -gt 0)
 
     $tweakChkAll.remove_CheckedChanged($script:tweakChkAllHandler)
     if ($count -eq 0)          { $tweakChkAll.CheckState = [System.Windows.Forms.CheckState]::Unchecked }
@@ -549,44 +616,30 @@ function Update-TweakSelection {
     $tweakChkAll.add_CheckedChanged($script:tweakChkAllHandler)
 }
 
-# ── Construir categorías de ajustes ─────────────────────────
-$cardH   = 48
-$cardGap = 5
+# ============================================================
+#  CONSTRUIR CATEGORÍAS DE TWEAKS
+# ============================================================
+$cardH      = 48
+$cardGap    = 5
 $catHeaderH = 28
-$tweakBlockY = 0
-
-# Referencia para reflow
-$script:tweakCatPanels = @()
-
-function Reflow-TweakCats {
-    $y = 0
-    foreach ($cp in $script:tweakCatPanels) {
-        $cp.Location = New-Object System.Drawing.Point(0, $y)
-        $y += $cp.Height + 4
-    }
-    # Ajustar altura total del bloque
-    $script:tweakBlock.Height = $y + 4
-}
 
 $categories = $script:sysTweaks | ForEach-Object { $_.Category } | Select-Object -Unique
 
 foreach ($cat in $categories) {
-    $catTweaks = $script:sysTweaks | Where-Object { $_.Category -eq $cat }
-    $catExpandedH = $catHeaderH + ($catTweaks.Count * ($cardH + $cardGap)) + 8
+    $catTweaks    = $script:sysTweaks | Where-Object { $_.Category -eq $cat }
+    $finalBodyH   = 4 + ($catTweaks.Count * ($cardH + $cardGap)) + 4
+    $expH         = $catHeaderH + $finalBodyH
+    $collH        = $catHeaderH
 
-    # Panel contenedor de la categoría
     $catPanel = New-Object System.Windows.Forms.Panel
     $catPanel.BackColor = $script:clrBackground
-    $catPanel.Size      = New-Object System.Drawing.Size(1, $catHeaderH)  # colapsado
-    $catPanel.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor
-                          [System.Windows.Forms.AnchorStyles]::Left -bor
-                          [System.Windows.Forms.AnchorStyles]::Right
+    $catPanel.Width     = $tweakBlock.Width
+    $catPanel.Height    = $collH
     $catPanel.Tag       = "collapsed"
 
-    # Cabecera de categoría
     $catHdr = New-Object System.Windows.Forms.Panel
     $catHdr.BackColor = [System.Drawing.Color]::FromArgb(45, 50, 70)
-    $catHdr.Size      = New-Object System.Drawing.Size(1, $catHeaderH)
+    $catHdr.Size      = New-Object System.Drawing.Size($catPanel.Width, $catHeaderH)
     $catHdr.Location  = New-Object System.Drawing.Point(0, 0)
     $catHdr.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor
                         [System.Windows.Forms.AnchorStyles]::Left -bor
@@ -636,11 +689,10 @@ foreach ($cat in $categories) {
         }
     })
 
-    # Body de la categoría (cards de ajustes)
     $catBody = New-Object System.Windows.Forms.Panel
     $catBody.BackColor = $script:clrBackground
     $catBody.Location  = New-Object System.Drawing.Point(0, $catHeaderH)
-    $catBody.Size      = New-Object System.Drawing.Size(1, 0)
+    $catBody.Size      = New-Object System.Drawing.Size($catPanel.Width, $finalBodyH)
     $catBody.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor
                          [System.Windows.Forms.AnchorStyles]::Left -bor
                          [System.Windows.Forms.AnchorStyles]::Right
@@ -652,19 +704,18 @@ foreach ($cat in $categories) {
         }
     })
 
-    # Cards de ajustes
     $bodyY = 4
     foreach ($tweak in $catTweaks) {
-        $tweakName = $tweak.Name
-        $tweakDesc = $tweak.Desc
-        $tweakRisk = $tweak.Risk
+        $tweakName   = $tweak.Name
+        $tweakDesc   = $tweak.Desc
+        $tweakRisk   = $tweak.Risk
         $tweakScript = $tweak.Script
-        $riskColor = $riskColors[$tweakRisk]
-        $riskLabel = $riskLabels[$tweakRisk]
+        $riskColor   = $riskColors[$tweakRisk]
+        $riskLabel   = $riskLabels[$tweakRisk]
 
         $card = New-Object System.Windows.Forms.Panel
         $card.BackColor = $script:clrCard
-        $card.Size      = New-Object System.Drawing.Size(1, $cardH)
+        $card.Size      = New-Object System.Drawing.Size(($catBody.Width - 2), $cardH)
         $card.Location  = New-Object System.Drawing.Point(1, $bodyY)
         $card.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor
                           [System.Windows.Forms.AnchorStyles]::Left -bor
@@ -695,7 +746,6 @@ foreach ($cat in $categories) {
         $lblDesc.AutoSize  = $true
         $lblDesc.Location  = New-Object System.Drawing.Point(38, 27)
 
-        # Badge de nivel de riesgo
         $lblRisk = New-Object System.Windows.Forms.Label
         $lblRisk.Text      = $riskLabel
         $lblRisk.Font      = New-Object System.Drawing.Font("Segoe UI", 7, [System.Drawing.FontStyle]::Bold)
@@ -710,7 +760,6 @@ foreach ($cat in $categories) {
         $lblRisk.Location  = New-Object System.Drawing.Point(0, 8)
         $lblRisk.Padding   = New-Object System.Windows.Forms.Padding(4, 2, 4, 2)
 
-        # Estado de ejecución
         $lblStatus = New-Object System.Windows.Forms.Label
         $lblStatus.Text      = ""
         $lblStatus.Font      = $script:fontSmall
@@ -719,10 +768,9 @@ foreach ($cat in $categories) {
         $lblStatus.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
         $lblStatus.Location  = New-Object System.Drawing.Point(0, 30)
 
-        # Toggle checkbox al clic en nombre o card
         $chkRef = $chk
         $lblName.Add_Click({ $chkRef.Checked = -not $chkRef.Checked }.GetNewClosure())
-        $card.Add_Click({ $chkRef.Checked = -not $chkRef.Checked }.GetNewClosure())
+        $card.Add_Click({   $chkRef.Checked = -not $chkRef.Checked }.GetNewClosure())
 
         $chk.Add_CheckedChanged({
             if ($this.Checked) {
@@ -745,34 +793,28 @@ foreach ($cat in $categories) {
 
         $card.Controls.AddRange(@($stripe, $chk, $lblName, $lblDesc, $lblRisk, $lblStatus))
         $catBody.Controls.Add($card)
-
         $script:sysTweakCheckboxes += @{ Chk = $chk; Data = $tweak; StatusLabel = $lblStatus }
         $bodyY += $cardH + $cardGap
     }
 
-    $finalBodyH = $bodyY + 4
-    $catBody.Size = New-Object System.Drawing.Size(1, $finalBodyH)
-
-    # Toggle colapsar / expandir la categoría
-    $catPanelRef  = $catPanel
-    $catBodyRef   = $catBody
-    $catChevRef   = $catChevron
-    $expH         = $catHeaderH + $finalBodyH
-    $collH        = $catHeaderH
+    $catPanelRef = $catPanel
+    $catBodyRef  = $catBody
+    $catChevRef  = $catChevron
+    $expHRef     = $expH
+    $collHRef    = $collH
 
     $toggleCat = {
         if ($catPanelRef.Tag -eq "collapsed") {
-            $catPanelRef.Tag     = "expanded"
-            $catPanelRef.Height  = $expH
-            $catBodyRef.Visible  = $true
-            $catBodyRef.Width    = $catPanelRef.Width - 2
-            $catBodyRef.Height   = $finalBodyH
-            $catChevRef.Text     = "^"
+            $catPanelRef.Tag    = "expanded"
+            $catPanelRef.Height = $expHRef
+            $catBodyRef.Visible = $true
+            $catBodyRef.Width   = $catPanelRef.Width - 2
+            $catChevRef.Text    = "^"
         } else {
-            $catPanelRef.Tag     = "collapsed"
-            $catPanelRef.Height  = $collH
-            $catBodyRef.Visible  = $false
-            $catChevRef.Text     = "v"
+            $catPanelRef.Tag    = "collapsed"
+            $catPanelRef.Height = $collHRef
+            $catBodyRef.Visible = $false
+            $catChevRef.Text    = "v"
         }
         Reflow-TweakCats
     }.GetNewClosure()
@@ -792,23 +834,16 @@ foreach ($cat in $categories) {
     })
 
     $tweakBlock.Controls.Add($catPanel)
-    $script:tweakCatPanels += $catPanel
+    $script:sysTweakCatPanels += $catPanel
 }
 
-# Ajustar altura inicial del bloque (todas colapsadas)
-Reflow-TweakCats
-
 # ============================================================
-#  SECCIÓN 2 — PANELES LEGACY Y ACCESOS DIRECTOS
+#  SECCIÓN 2 — PANELES Y ACCESOS DIRECTOS
 # ============================================================
-
-# Encabezado de sección
 $panelsSectionHdr = New-Object System.Windows.Forms.Panel
 $panelsSectionHdr.BackColor = [System.Drawing.Color]::FromArgb(30, 33, 48)
 $panelsSectionHdr.Height    = 32
-$panelsSectionHdr.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor
-                              [System.Windows.Forms.AnchorStyles]::Left -bor
-                              [System.Windows.Forms.AnchorStyles]::Right
+$panelsSectionHdr.Width     = $sysInner.Width
 
 $panelsSectionLbl = New-Object System.Windows.Forms.Label
 $panelsSectionLbl.Text      = "  Paneles y accesos directos"
@@ -819,12 +854,9 @@ $panelsSectionLbl.AutoSize  = $true
 $panelsSectionLbl.Location  = New-Object System.Drawing.Point(0, 8)
 $panelsSectionHdr.Controls.Add($panelsSectionLbl)
 
-# Cards de paneles (sin checkbox, botón directo "Abrir")
 $panelsBlock = New-Object System.Windows.Forms.Panel
 $panelsBlock.BackColor = $script:clrBackground
-$panelsBlock.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor
-                         [System.Windows.Forms.AnchorStyles]::Left -bor
-                         [System.Windows.Forms.AnchorStyles]::Right
+$panelsBlock.Width     = $sysInner.Width
 
 $panelsBlock.Add_Resize({
     foreach ($ctrl in $this.Controls) {
@@ -832,16 +864,17 @@ $panelsBlock.Add_Resize({
     }
 })
 
-$panelCardH = 48
+$panelCardH   = 48
 $panelCardGap = 5
-$pY = 4
+$pY           = 4
 
 foreach ($panel in $script:sysPanels) {
     $pCmd   = $panel.Cmd
+    $pName  = $panel.Name
     $pColor = $panel.Color
 
     $pCard = New-ActionCard `
-        -Title       $panel.Name `
+        -Title       $pName `
         -Desc        $panel.Desc `
         -Y           $pY `
         -AccentColor $pColor `
@@ -849,7 +882,7 @@ foreach ($panel in $script:sysPanels) {
         -OnClick     {
             try {
                 Start-Process $pCmd
-                $script:statusLabel.Text      = "Abriendo $($panel.Name)..."
+                $script:statusLabel.Text      = "Abriendo $pName..."
                 $script:statusLabel.ForeColor = $script:clrTextMuted
             } catch {
                 $script:statusLabel.Text      = "Error: $_"
@@ -865,58 +898,28 @@ foreach ($panel in $script:sysPanels) {
 $panelsBlock.Height = $pY + 4
 
 # ============================================================
-#  ENSAMBLAR BLOQUES EN EL SCROLL
-#  Orden: toolbar → sep → hdr ajustes → bloque ajustes →
-#         gap → hdr paneles → bloque paneles
+#  ENSAMBLAR sysInner y calcular layout inicial
 # ============================================================
-
-# Calcular posiciones dinámicas con un panel contenedor único
-$sysInner = New-Object System.Windows.Forms.Panel
-$sysInner.BackColor = $script:clrBackground
-$sysInner.Location  = New-Object System.Drawing.Point(0, 0)
-$sysInner.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor
-                      [System.Windows.Forms.AnchorStyles]::Left -bor
-                      [System.Windows.Forms.AnchorStyles]::Right
-
-function Reflow-SysInner {
-    $y = 0
-    # toolbar
-    $tweakToolbar.Location = New-Object System.Drawing.Point(0, $y); $y += 44
-    # sep
-    $tweakToolbarLine.Location = New-Object System.Drawing.Point(0, $y); $y += 1
-    # hdr ajustes
-    $tweakSectionHdr.Location = New-Object System.Drawing.Point(0, $y); $y += 32
-    # bloque ajustes
-    $tweakBlock.Location = New-Object System.Drawing.Point(0, $y); $y += $tweakBlock.Height + 8
-    # hdr paneles
-    $panelsSectionHdr.Location = New-Object System.Drawing.Point(0, $y); $y += 32 + 4
-    # bloque paneles
-    $panelsBlock.Location = New-Object System.Drawing.Point(0, $y); $y += $panelsBlock.Height
-    $sysInner.Height = $y + 16
-}
-
 $sysInner.Controls.AddRange(@(
     $tweakToolbar, $tweakToolbarLine,
     $tweakSectionHdr, $tweakBlock,
     $panelsSectionHdr, $panelsBlock
 ))
 
+# Propagar resize del sysInner a todos sus hijos directos
 $sysInner.Add_Resize({
     $w = $this.Width
-    $tweakToolbar.Width      = $w
-    $tweakToolbarLine.Width  = $w
-    $tweakSectionHdr.Width   = $w
-    $tweakBlock.Width        = $w
-    $panelsSectionHdr.Width  = $w
-    $panelsBlock.Width       = $w
+    foreach ($ctrl in $this.Controls) {
+        if ($ctrl -is [System.Windows.Forms.Panel]) { $ctrl.Width = $w }
+    }
     Reflow-SysInner
 })
 
-Reflow-SysInner
-$scrollSistema.Controls.Add($sysInner)
+# Layout inicial: primero las categorías, luego el inner completo
+Reflow-TweakCats   # calcula tweakBlock.Height y llama Reflow-SysInner
 
 # ============================================================
-#  EVENTO: SELECCIONAR TODO (ajustes)
+#  EVENTO: SELECCIONAR TODO
 # ============================================================
 $script:tweakChkAllHandler = {
     if ($tweakChkAll.CheckState -eq [System.Windows.Forms.CheckState]::Indeterminate) { return }
@@ -950,8 +953,8 @@ $btnApplyTweaks.Add_Click({
     $current = 0
     foreach ($entry in $selected) {
         $current++
-        $tweakName = $entry.Data.Name
-        $sl        = $entry.StatusLabel
+        $tweakName   = $entry.Data.Name
+        $sl          = $entry.StatusLabel
         $scriptBlock = $entry.Data.Script
 
         $script:statusLabel.Text      = "[$current/$total] Aplicando: $tweakName..."
@@ -973,7 +976,6 @@ $btnApplyTweaks.Add_Click({
             $sl.Text      = "Error: $_"
             $sl.ForeColor = $script:clrDanger
         }
-
         [System.Windows.Forms.Application]::DoEvents()
     }
 
@@ -988,6 +990,6 @@ $btnApplyTweaks.Add_Click({
 # ============================================================
 #  ENSAMBLAR PÁGINA
 # ============================================================
-$pageSistema.Controls.Add($scrollSistema)
+$pageSistema.Controls.Add($sysViewport)
 
 $script:pages["Sistema"] = $pageSistema
