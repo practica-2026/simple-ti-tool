@@ -43,7 +43,6 @@ $menuItems = @(
     @{ Label = "Software";   Icon = "[SW]"; Y = 80  }
     @{ Label = "Sistema";    Icon = "[SY]"; Y = 120 }
     @{ Label = "Red";        Icon = "[NW]"; Y = 160 }
-    @{ Label = "Inventario"; Icon = "[IN]"; Y = 200 }
 )
 
 $script:navButtons = @{}
@@ -143,7 +142,6 @@ $script:headerTitles = @{
     "Software"   = @{ Title = "Instalacion de Software";    Sub = "Gestion de aplicaciones via Winget" }
     "Sistema"    = @{ Title = "Herramientas del Sistema";   Sub = "Mantenimiento y configuracion de Windows" }
     "Red"        = @{ Title = "Diagnostico de Red";         Sub = "Conectividad, IP y DNS" }
-    "Inventario" = @{ Title = "Inventario y Entregas";      Sub = "Registro de equipos entregados a usuarios" }
 }
 
 # ─── FUNCIÓN DE NAVEGACIÓN ──────────────────────────────────
