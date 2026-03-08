@@ -529,23 +529,50 @@ $script:netCatalog = [ordered]@{
 # ============================================================
 # ============================================================
 #  PÁGINA PRINCIPAL
+#
+#  Layout con dos contenedores independientes y altura fija:
+#
+#  $pageRed  (Fill)
+#    ├─ $netTopPanel    — categorías con scroll manual (Fill)
+#    │    ├─ $netVBar   — scrollbar derecho
+#    │    └─ $netInner  — panel interior desplazable
+#    └─ $netBottomPanel — consola fija (altura $consoleTotalH)
+#         ├─ toolbar (Limpiar / Copiar)
+#         ├─ separador
+#         └─ RichTextBox
+#
+#  $netBottomPanel tiene altura fija y se ancla abajo.
+#  $netTopPanel ocupa todo el espacio restante.
+#  Ninguno usa Dock — se posicionan con Location + Size
+#  y se reposicionan en el resize de $pageRed.
 # ============================================================
 $pageRed = New-Object System.Windows.Forms.Panel
 $pageRed.Dock      = [System.Windows.Forms.DockStyle]::Fill
 $pageRed.BackColor = $script:clrBackground
 $pageRed.Visible   = $false
 
-# ============================================================
-#  CONSOLA FIJA EN LA PARTE INFERIOR
-#  Dock = Bottom en pageRed — permanece siempre visible.
-#  El área de categorías (viewport) ocupa el Fill restante.
-# ============================================================
+# ── Altura fija del panel inferior ──────────────────────────
+$consoleH      = 200   # RichTextBox
+$consoleSepH   = 1     # línea separadora
+$consoleBarH   = 30    # toolbar
+$consoleTotalH = $consoleH + $consoleSepH + $consoleBarH
 
-# Toolbar de consola
+# ============================================================
+#  PANEL INFERIOR — CONSOLA (altura fija)
+# ============================================================
+$netBottomPanel = New-Object System.Windows.Forms.Panel
+$netBottomPanel.BackColor = [System.Drawing.Color]::FromArgb(13, 17, 30)
+$netBottomPanel.Height    = $consoleTotalH
+$netBottomPanel.Location  = New-Object System.Drawing.Point(0, 0)   # Reflow lo ajusta
+
+# Toolbar (parte superior del panel inferior)
 $consoleToolbar = New-Object System.Windows.Forms.Panel
-$consoleToolbar.Dock      = [System.Windows.Forms.DockStyle]::Bottom
-$consoleToolbar.Height    = 30
 $consoleToolbar.BackColor = [System.Drawing.Color]::FromArgb(20, 25, 40)
+$consoleToolbar.Height    = $consoleBarH
+$consoleToolbar.Location  = New-Object System.Drawing.Point(0, 0)
+$consoleToolbar.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor
+                            [System.Windows.Forms.AnchorStyles]::Left -bor
+                            [System.Windows.Forms.AnchorStyles]::Right
 
 $consoleLbl = New-Object System.Windows.Forms.Label
 $consoleLbl.Text      = "  Consola de salida"
@@ -585,7 +612,6 @@ $btnClearConsole.Add_Click({
     $script:statusLabel.Text      = "Consola limpiada"
     $script:statusLabel.ForeColor = $script:clrTextMuted
 })
-
 $btnCopyConsole.Add_Click({
     if ($script:netOut.Text.Trim() -ne "") {
         [System.Windows.Forms.Clipboard]::SetText($script:netOut.Text)
@@ -594,16 +620,17 @@ $btnCopyConsole.Add_Click({
     }
 })
 
-# Separador visual encima de la consola
+# Separador visual
 $consoleSep = New-Object System.Windows.Forms.Panel
-$consoleSep.Dock      = [System.Windows.Forms.DockStyle]::Bottom
-$consoleSep.Height    = 1
 $consoleSep.BackColor = [System.Drawing.Color]::FromArgb(40, 50, 70)
+$consoleSep.Height    = $consoleSepH
+$consoleSep.Location  = New-Object System.Drawing.Point(0, $consoleBarH)
+$consoleSep.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor
+                        [System.Windows.Forms.AnchorStyles]::Left -bor
+                        [System.Windows.Forms.AnchorStyles]::Right
 
-# RichTextBox de salida
+# RichTextBox
 $script:netOut = New-Object System.Windows.Forms.RichTextBox
-$script:netOut.Dock        = [System.Windows.Forms.DockStyle]::Bottom
-$script:netOut.Height      = 200
 $script:netOut.BackColor   = [System.Drawing.Color]::FromArgb(13, 17, 30)
 $script:netOut.ForeColor   = [System.Drawing.Color]::FromArgb(134, 239, 172)
 $script:netOut.Font        = New-Object System.Drawing.Font("Consolas", 8)
@@ -611,23 +638,29 @@ $script:netOut.ReadOnly    = $true
 $script:netOut.BorderStyle = [System.Windows.Forms.BorderStyle]::None
 $script:netOut.ScrollBars  = [System.Windows.Forms.RichTextBoxScrollBars]::Vertical
 $script:netOut.Text        = "-- Consola de red lista. Selecciona una categoria y ejecuta un comando. --`r`n"
+$script:netOut.Location    = New-Object System.Drawing.Point(0, ($consoleBarH + $consoleSepH))
+$script:netOut.Height      = $consoleH
+$script:netOut.Anchor      = [System.Windows.Forms.AnchorStyles]::Top -bor
+                             [System.Windows.Forms.AnchorStyles]::Left -bor
+                             [System.Windows.Forms.AnchorStyles]::Right
 
-# Añadir al pageRed en orden Bottom-first (último añadido = más abajo)
-$pageRed.Controls.Add($script:netOut)
-$pageRed.Controls.Add($consoleSep)
-$pageRed.Controls.Add($consoleToolbar)
+$netBottomPanel.Controls.AddRange(@($consoleToolbar, $consoleSep, $script:netOut))
+
+# Propagar ancho a los hijos del panel inferior
+$netBottomPanel.Add_Resize({
+    $w = $this.Width
+    $consoleToolbar.Width  = $w
+    $consoleSep.Width      = $w
+    $script:netOut.Width   = $w
+})
 
 # ============================================================
-#  ÁREA DE CATEGORÍAS — SCROLL MANUAL
-#  $netViewport  (Fill, sin AutoScroll)
-#    $netVBar    (VScrollBar, Right)
-#    $netInner   (Panel, Top = -$netVBar.Value)
-#      secPanel[0..N]  apilados con Location.Y calculado
+#  PANEL SUPERIOR — CATEGORÍAS CON SCROLL MANUAL
 # ============================================================
-$netViewport = New-Object System.Windows.Forms.Panel
-$netViewport.Dock       = [System.Windows.Forms.DockStyle]::Fill
-$netViewport.BackColor  = $script:clrBackground
-$netViewport.AutoScroll = $false
+$netTopPanel = New-Object System.Windows.Forms.Panel
+$netTopPanel.BackColor  = $script:clrBackground
+$netTopPanel.Location   = New-Object System.Drawing.Point(0, 0)   # Reflow lo ajusta
+$netTopPanel.AutoScroll = $false
 
 $netVBar = New-Object System.Windows.Forms.VScrollBar
 $netVBar.Dock        = [System.Windows.Forms.DockStyle]::Right
@@ -639,11 +672,10 @@ $netInner.BackColor = $script:clrBackground
 $netInner.Location  = New-Object System.Drawing.Point(0, 0)
 $netInner.AutoSize  = $false
 
-# ── Funciones de scroll ──────────────────────────────────────
 function Update-NetScrollBar {
     $contentH  = $netInner.Height
-    $viewportH = $netViewport.ClientSize.Height
-    $innerW    = $netViewport.ClientSize.Width - $netVBar.Width
+    $viewportH = $netTopPanel.ClientSize.Height
+    $innerW    = $netTopPanel.ClientSize.Width - $netVBar.Width
     if ($netInner.Width -ne $innerW -and $innerW -gt 0) {
         $netInner.Width = $innerW
         foreach ($sp in $script:netSecPanels) { $sp.Width = $innerW }
@@ -684,16 +716,34 @@ $netWheelHandler = {
     $netVBar.Value = $newVal
     $netInner.Top  = -$newVal
 }
-$netViewport.Add_MouseWheel($netWheelHandler)
+$netTopPanel.Add_MouseWheel($netWheelHandler)
 $netInner.Add_MouseWheel($netWheelHandler)
 
-$netViewport.Add_Resize({ Update-NetScrollBar })
+$netTopPanel.Add_Resize({ Update-NetScrollBar })
+$netTopPanel.Controls.Add($netVBar)
+$netTopPanel.Controls.Add($netInner)
 
-$netViewport.Controls.Add($netVBar)
-$netViewport.Controls.Add($netInner)
+# ============================================================
+#  REFLOW DEL PAGEРЕД — posiciona los dos paneles
+#  Top ocupa todo excepto los últimos $consoleTotalH px.
+#  Bottom ocupa exactamente $consoleTotalH px abajo.
+# ============================================================
+function Reflow-RedPage {
+    $w  = $pageRed.ClientSize.Width
+    $h  = $pageRed.ClientSize.Height
+    $bH = $consoleTotalH
 
-# Añadir viewport al pageRed (Fill, ocupa el espacio restante)
-$pageRed.Controls.Add($netViewport)
+    $netTopPanel.Location    = New-Object System.Drawing.Point(0, 0)
+    $netTopPanel.Size        = New-Object System.Drawing.Size($w, ($h - $bH))
+
+    $netBottomPanel.Location = New-Object System.Drawing.Point(0, ($h - $bH))
+    $netBottomPanel.Size     = New-Object System.Drawing.Size($w, $bH)
+}
+
+$pageRed.Add_Resize({ Reflow-RedPage })
+
+$pageRed.Controls.Add($netTopPanel)
+$pageRed.Controls.Add($netBottomPanel)
 
 # ============================================================
 #  CONSTRUIR CATEGORÍAS COLAPSABLES
@@ -713,14 +763,12 @@ foreach ($catName in $script:netCatalog.Keys) {
     $expandedH  = $headerH + $finalBodyH
     $collapsedH = $headerH
 
-    # ── Panel contenedor ────────────────────────────────────
     $secPanel = New-Object System.Windows.Forms.Panel
     $secPanel.BackColor = $script:clrBackground
     $secPanel.Width     = $netInner.Width
     $secPanel.Height    = $collapsedH
     $secPanel.Tag       = "collapsed"
 
-    # ── Cabecera coloreada ───────────────────────────────────
     $secHdr = New-Object System.Windows.Forms.Panel
     $secHdr.BackColor = $catColor
     $secHdr.Size      = New-Object System.Drawing.Size($secPanel.Width, $headerH)
@@ -771,7 +819,6 @@ foreach ($catName in $script:netCatalog.Keys) {
         }
     })
 
-    # ── Body con cards de comandos ───────────────────────────
     $secBody = New-Object System.Windows.Forms.Panel
     $secBody.BackColor = $script:clrBackground
     $secBody.Location  = New-Object System.Drawing.Point(0, $headerH)
@@ -857,7 +904,6 @@ foreach ($catName in $script:netCatalog.Keys) {
         $bodyY += $cardH + $cardGap
     }
 
-    # ── Toggle colapsar / expandir ───────────────────────────
     $secPanelRef = $secPanel
     $secBodyRef  = $secBody
     $chevRef     = $lblChevron
@@ -898,10 +944,8 @@ foreach ($catName in $script:netCatalog.Keys) {
     $script:netSecPanels += $secPanel
 }
 
-# Layout inicial con todas las secciones colapsadas
+# Layout inicial
 Reflow-NetSections
+Reflow-RedPage
 
-# ============================================================
-#  REGISTRAR PÁGINA
-# ============================================================
 $script:pages["Red"] = $pageRed
