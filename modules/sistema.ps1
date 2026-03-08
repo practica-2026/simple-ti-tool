@@ -623,11 +623,17 @@ foreach ($cat in $categories) {
     $catHdr.Controls.AddRange(@($catLbl, $catCountLbl, $catChevron))
 
     $catHdr.Add_Resize({
-        $r = $this.Width - 10
-        $chev = $this.Controls | Where-Object { $_.Text -eq "v" -or $_.Text -eq "^" }
-        $cnt  = $this.Controls | Where-Object { $_.Text -match "ajustes" }
-        if ($chev) { $chev.Location = New-Object System.Drawing.Point(($r - $chev.Width), $chev.Location.Y) }
-        if ($cnt)  { $cnt.Location  = New-Object System.Drawing.Point(($r - $chev.Width - $cnt.Width - 8), $cnt.Location.Y) }
+        $r    = $this.Width - 10
+        $chev = $this.Controls | Where-Object { $_.Text -eq "v" -or $_.Text -eq "^" } | Select-Object -First 1
+        $cnt  = $this.Controls | Where-Object { $_.Text -match "ajustes" }             | Select-Object -First 1
+        if ($chev -and $chev.Width -gt 0) {
+            $chevX = $r - $chev.Width
+            $chev.Location = New-Object System.Drawing.Point($chevX, $chev.Location.Y)
+        }
+        if ($cnt -and $cnt.Width -gt 0 -and $chev -and $chev.Width -gt 0) {
+            $cntX = $r - $chev.Width - $cnt.Width - 8
+            $cnt.Location = New-Object System.Drawing.Point($cntX, $cnt.Location.Y)
+        }
     })
 
     # Body de la categoría (cards de ajustes)
