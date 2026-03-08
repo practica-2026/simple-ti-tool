@@ -265,12 +265,12 @@ $swToolbar.Height    = 44
 $swToolbar.BackColor = $script:clrCard
 
 $chkAll = New-Object System.Windows.Forms.CheckBox
-$chkAll.Text      = "Seleccionar todo"
-$chkAll.Font      = $script:fontLabel
-$chkAll.ForeColor = $script:clrTextPrimary
-$chkAll.AutoSize  = $true
-$chkAll.Location  = New-Object System.Drawing.Point(12, 13)
-$chkAll.Cursor    = [System.Windows.Forms.Cursors]::Hand
+$chkAll.Text       = "Seleccionar todo"
+$chkAll.Font       = $script:fontLabel
+$chkAll.ForeColor  = $script:clrTextPrimary
+$chkAll.AutoSize   = $true
+$chkAll.Location   = New-Object System.Drawing.Point(12, 13)
+$chkAll.Cursor     = [System.Windows.Forms.Cursors]::Hand
 $chkAll.ThreeState = $true
 
 $lblCount = New-Object System.Windows.Forms.Label
@@ -298,21 +298,38 @@ $swToolbarLine.Dock      = [System.Windows.Forms.DockStyle]::Top
 $swToolbarLine.Height    = 1
 $swToolbarLine.BackColor = $script:clrBorder
 
-# ─── SCROLL PANEL ───────────────────────────────────────────
+# ============================================================
+#  SCROLL + FLOW CONTAINER
+#  Usamos un Panel con AutoScroll que contiene un FlowLayoutPanel.
+#  El FlowLayoutPanel apila los secPanel de arriba a abajo
+#  automáticamente, sin Location manual ni Reflow.
+#  Cuando un secPanel cambia de Height el Flow lo reordena solo.
+# ============================================================
 $scrollSoftware = New-Object System.Windows.Forms.Panel
 $scrollSoftware.Dock       = [System.Windows.Forms.DockStyle]::Fill
 $scrollSoftware.AutoScroll = $true
 $scrollSoftware.BackColor  = $script:clrBackground
-$scrollSoftware.Padding    = New-Object System.Windows.Forms.Padding(0, 8, 0, 24)
 
-# Ajustar ancho de hijos directos al resize
+# FlowLayoutPanel: apila hijos verticalmente, wrapping desactivado
+$swFlow = New-Object System.Windows.Forms.FlowLayoutPanel
+$swFlow.FlowDirection    = [System.Windows.Forms.FlowDirection]::TopDown
+$swFlow.WrapContents     = $false
+$swFlow.AutoSize         = $true
+$swFlow.AutoSizeMode     = [System.Windows.Forms.AutoSizeMode]::GrowAndShrink
+$swFlow.BackColor        = $script:clrBackground
+$swFlow.Padding          = New-Object System.Windows.Forms.Padding(0, 8, 0, 24)
+$swFlow.Location         = New-Object System.Drawing.Point(0, 0)
+
+# Cuando el scroll cambia de ancho, el Flow y cada secPanel se adaptan
 $scrollSoftware.Add_Resize({
-    foreach ($ctrl in $this.Controls) {
-        if ($ctrl -is [System.Windows.Forms.Panel]) {
-            $ctrl.Width = $this.Width - 20
-        }
+    $w = $this.ClientSize.Width
+    $swFlow.Width = $w
+    foreach ($ctrl in $swFlow.Controls) {
+        $ctrl.Width = $w - 4
     }
 })
+
+$scrollSoftware.Controls.Add($swFlow)
 
 # ============================================================
 #  FUNCIÓN: actualizar contador y sincronizar chkAll
@@ -335,49 +352,46 @@ function Update-SwSelection {
 # ============================================================
 #  CONSTRUIR SECCIONES COLAPSABLES
 # ============================================================
-$cardH   = 44
-$cardGap = 5
-
-# Referencia global para reposicionar secciones al colapsar/expandir
-$script:swSectionPanels = @()
-
-function Reflow-Sections {
-    $y = 0
-    foreach ($sp in $script:swSectionPanels) {
-        $sp.Location = New-Object System.Drawing.Point(0, $y)
-        $y += $sp.Height + 6
-    }
-}
+$cardH        = 44
+$cardGap      = 5
+$headerH      = 40
+$subHeaderH   = 24
+$subHeaderGap = 8
 
 foreach ($secName in $script:swSections.Keys) {
     $secData  = $script:swSections[$secName]
     $secColor = $secData.Color
     $secSubs  = $secData.Sub
 
-    # Calcular altura expandida
-    $totalApps = 0
-    foreach ($subName in $secSubs.Keys) {
-        $totalApps += $secSubs[$subName].Count
-    }
-    $subHeaders    = $secSubs.Keys.Count
-    $headerH       = 40
-    $subHeaderH    = 24
-    $subHeaderGap  = 8
-    $expandedH     = $headerH + ($subHeaders * ($subHeaderH + $subHeaderGap)) + ($totalApps * ($cardH + $cardGap)) + 12
+    # ── Calcular alturas ────────────────────────────────────
+    $totalApps  = 0
+    foreach ($k in $secSubs.Keys) { $totalApps += $secSubs[$k].Count }
+    $subCount   = $secSubs.Keys.Count
 
-    # Panel contenedor de la sección completa
+    # Altura total del body (calculada una vez, fija)
+    $bodyInnerH = 8 `
+        + ($subCount   * ($subHeaderH + $subHeaderGap)) `
+        + ($totalApps  * ($cardH + $cardGap)) `
+        + ($subCount   * $subHeaderGap) `
+        + 8
+    $expandedH  = $headerH + $bodyInnerH
+    $collapsedH = $headerH
+
+    # ── Panel contenedor de la sección ──────────────────────
+    # El FlowLayoutPanel usa el Height de este panel para apilar.
+    # Colapsado  → Height = headerH   (body oculto)
+    # Expandido  → Height = expandedH (body visible)
     $secPanel = New-Object System.Windows.Forms.Panel
     $secPanel.BackColor = $script:clrBackground
-    $secPanel.Size      = New-Object System.Drawing.Size(1, $headerH)   # colapsado por defecto
-    $secPanel.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor
-                          [System.Windows.Forms.AnchorStyles]::Left -bor
-                          [System.Windows.Forms.AnchorStyles]::Right
+    $secPanel.Width     = $swFlow.Width - 4
+    $secPanel.Height    = $collapsedH
     $secPanel.Tag       = "collapsed"
+    # Sin Anchor: el FlowLayoutPanel gestiona la posición Y
 
-    # ── Cabecera de la sección grande ──────────────────────
+    # ── Cabecera de la sección ───────────────────────────────
     $secHeader = New-Object System.Windows.Forms.Panel
     $secHeader.BackColor = $secColor
-    $secHeader.Size      = New-Object System.Drawing.Size(1, $headerH)
+    $secHeader.Size      = New-Object System.Drawing.Size($secPanel.Width, $headerH)
     $secHeader.Location  = New-Object System.Drawing.Point(0, 0)
     $secHeader.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor
                            [System.Windows.Forms.AnchorStyles]::Left -bor
@@ -393,17 +407,14 @@ foreach ($secName in $script:swSections.Keys) {
     $lblSecName.BackColor = [System.Drawing.Color]::Transparent
     $lblSecName.Cursor    = [System.Windows.Forms.Cursors]::Hand
 
-    # Contar apps de la sección
-    $appCount = 0
-    foreach ($k in $secSubs.Keys) { $appCount += $secSubs[$k].Count }
+    $appCount = $totalApps
     $lblSecCount = New-Object System.Windows.Forms.Label
     $lblSecCount.Text      = "$appCount apps"
     $lblSecCount.Font      = $script:fontSmall
     $lblSecCount.ForeColor = [System.Drawing.Color]::FromArgb(200, 255, 255, 255)
     $lblSecCount.AutoSize  = $true
     $lblSecCount.BackColor = [System.Drawing.Color]::Transparent
-    $lblSecCount.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor
-                             [System.Windows.Forms.AnchorStyles]::Right
+    $lblSecCount.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
     $lblSecCount.Location  = New-Object System.Drawing.Point(0, 14)
 
     $lblChevron = New-Object System.Windows.Forms.Label
@@ -412,13 +423,11 @@ foreach ($secName in $script:swSections.Keys) {
     $lblChevron.ForeColor = [System.Drawing.Color]::White
     $lblChevron.AutoSize  = $true
     $lblChevron.BackColor = [System.Drawing.Color]::Transparent
-    $lblChevron.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor
-                            [System.Windows.Forms.AnchorStyles]::Right
+    $lblChevron.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
     $lblChevron.Location  = New-Object System.Drawing.Point(0, 13)
 
     $secHeader.Controls.AddRange(@($lblSecName, $lblSecCount, $lblChevron))
 
-    # Reposicionar etiquetas de la derecha en resize del header
     $secHeader.Add_Resize({
         $right = $this.Width - 12
         $chev  = $this.Controls | Where-Object { $_.Text -eq "v" -or $_.Text -eq "^" } | Select-Object -First 1
@@ -426,17 +435,17 @@ foreach ($secName in $script:swSections.Keys) {
         if ($chev -and $chev.Width -gt 0) {
             $chev.Location = New-Object System.Drawing.Point(($right - $chev.Width), $chev.Location.Y)
         }
-        if ($cnt -and $cnt.Width -gt 0) {
-            $cntX = if ($chev -and $chev.Width -gt 0) { $right - $chev.Width - $cnt.Width - 10 } else { $right - $cnt.Width }
+        if ($cnt -and $cnt.Width -gt 0 -and $chev -and $chev.Width -gt 0) {
+            $cntX = $right - $chev.Width - $cnt.Width - 10
             $cnt.Location = New-Object System.Drawing.Point($cntX, $cnt.Location.Y)
         }
     })
 
-    # Panel de contenido (apps + subcategorias), oculto cuando colapsado
+    # ── Body con subcategorías y apps ───────────────────────
     $secBody = New-Object System.Windows.Forms.Panel
     $secBody.BackColor = $script:clrBackground
     $secBody.Location  = New-Object System.Drawing.Point(0, $headerH)
-    $secBody.Size      = New-Object System.Drawing.Size(1, 0)
+    $secBody.Size      = New-Object System.Drawing.Size($secPanel.Width, $bodyInnerH)
     $secBody.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor
                          [System.Windows.Forms.AnchorStyles]::Left -bor
                          [System.Windows.Forms.AnchorStyles]::Right
@@ -450,19 +459,18 @@ foreach ($secName in $script:swSections.Keys) {
         }
     })
 
-    # ── Construir subcategorías y apps dentro del body ──────
+    # ── Construir subcategorías y apps ──────────────────────
     $bodyY = 8
     foreach ($subName in $secSubs.Keys) {
         $appsInSub = $secSubs[$subName]
 
-        # Encabezado de subcategoría
         $subHeader = New-Object System.Windows.Forms.Panel
         $subHeader.BackColor = [System.Drawing.Color]::FromArgb(
             [Math]::Min(255, $secColor.R + 30),
             [Math]::Min(255, $secColor.G + 30),
             [Math]::Min(255, $secColor.B + 30)
         )
-        $subHeader.Size     = New-Object System.Drawing.Size(1, $subHeaderH)
+        $subHeader.Size     = New-Object System.Drawing.Size(($secBody.Width - 4), $subHeaderH)
         $subHeader.Location = New-Object System.Drawing.Point(2, $bodyY)
         $subHeader.Anchor   = [System.Windows.Forms.AnchorStyles]::Top -bor
                               [System.Windows.Forms.AnchorStyles]::Left -bor
@@ -480,7 +488,6 @@ foreach ($secName in $script:swSections.Keys) {
         $secBody.Controls.Add($subHeader)
         $bodyY += $subHeaderH + $subHeaderGap
 
-        # Apps de la subcategoría
         foreach ($app in $appsInSub) {
             $appId   = $app.Id
             $appName = $app.Name
@@ -488,7 +495,7 @@ foreach ($secName in $script:swSections.Keys) {
 
             $card = New-Object System.Windows.Forms.Panel
             $card.BackColor = $script:clrCard
-            $card.Size      = New-Object System.Drawing.Size(1, $cardH)
+            $card.Size      = New-Object System.Drawing.Size(($secBody.Width - 4), $cardH)
             $card.Location  = New-Object System.Drawing.Point(2, $bodyY)
             $card.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor
                               [System.Windows.Forms.AnchorStyles]::Left -bor
@@ -538,7 +545,7 @@ foreach ($secName in $script:swSections.Keys) {
 
             $chkRef = $chk
             $lblName.Add_Click({ $chkRef.Checked = -not $chkRef.Checked }.GetNewClosure())
-            $card.Add_Click({ $chkRef.Checked = -not $chkRef.Checked }.GetNewClosure())
+            $card.Add_Click({   $chkRef.Checked = -not $chkRef.Checked }.GetNewClosure())
 
             $chk.Add_CheckedChanged({
                 if ($this.Checked) {
@@ -569,33 +576,28 @@ foreach ($secName in $script:swSections.Keys) {
         $bodyY += $subHeaderGap
     }
 
-    # Fijar altura final del body
-    $finalBodyH = $bodyY + 8
-    $secBody.Size = New-Object System.Drawing.Size(1, $finalBodyH)
-
     # ── Toggle colapsar / expandir ───────────────────────────
-    $toggleExpH    = $headerH + $finalBodyH
-    $toggleCollH   = $headerH
+    # Solo cambia Height del secPanel y Visible del body.
+    # El FlowLayoutPanel reordena automáticamente sin Location.
     $secPanelRef   = $secPanel
     $secBodyRef    = $secBody
-    $secHeaderRef  = $secHeader
     $lblChevronRef = $lblChevron
+    $expH          = $expandedH
+    $collH         = $collapsedH
 
     $toggleAction = {
         if ($secPanelRef.Tag -eq "collapsed") {
-            $secPanelRef.Tag         = "expanded"
-            $secPanelRef.Height      = $toggleExpH
-            $secBodyRef.Visible      = $true
-            $secBodyRef.Height       = $finalBodyH
-            $secBodyRef.Width        = $secPanelRef.Width - 4
-            $lblChevronRef.Text      = "^"
+            $secPanelRef.Tag    = "expanded"
+            $secPanelRef.Height = $expH
+            $secBodyRef.Visible = $true
         } else {
-            $secPanelRef.Tag         = "collapsed"
-            $secPanelRef.Height      = $toggleCollH
-            $secBodyRef.Visible      = $false
-            $lblChevronRef.Text      = "v"
+            $secPanelRef.Tag    = "collapsed"
+            $secPanelRef.Height = $collH
+            $secBodyRef.Visible = $false
         }
-        Reflow-Sections
+        $lblChevronRef.Text = if ($secPanelRef.Tag -eq "expanded") { "^" } else { "v" }
+        # Forzar que el FlowLayoutPanel recalcule el layout
+        $swFlow.PerformLayout()
     }.GetNewClosure()
 
     $secHeader.Add_Click($toggleAction)
@@ -604,6 +606,7 @@ foreach ($secName in $script:swSections.Keys) {
     $secPanel.Controls.Add($secHeader)
     $secPanel.Controls.Add($secBody)
 
+    # Propagación de resize del secPanel a sus hijos
     $secPanel.Add_Resize({
         $secHeader.Width = $this.Width
         $secBody.Width   = $this.Width - 4
@@ -614,12 +617,8 @@ foreach ($secName in $script:swSections.Keys) {
         }
     })
 
-    $scrollSoftware.Controls.Add($secPanel)
-    $script:swSectionPanels += $secPanel
+    $swFlow.Controls.Add($secPanel)
 }
-
-# Posición inicial (todas colapsadas)
-Reflow-Sections
 
 # ============================================================
 #  EVENTO: SELECCIONAR TODO / NINGUNO
@@ -672,8 +671,8 @@ $btnInstallAll.Add_Click({
                 -Wait -PassThru -WindowStyle Hidden
 
             switch ($proc.ExitCode) {
-                0           { $sl.Text = "OK Instalado";         $sl.ForeColor = $script:clrSuccess }
-                -1978335189 { $sl.Text = "Ya instalado";          $sl.ForeColor = $script:clrTextMuted }
+                0           { $sl.Text = "OK Instalado";              $sl.ForeColor = $script:clrSuccess }
+                -1978335189 { $sl.Text = "Ya instalado";              $sl.ForeColor = $script:clrTextMuted }
                 default     { $sl.Text = "Error ($($proc.ExitCode))"; $sl.ForeColor = $script:clrDanger }
             }
         } catch {
