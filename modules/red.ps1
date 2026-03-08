@@ -527,6 +527,7 @@ $script:netCatalog = [ordered]@{
 }
 
 # ============================================================
+# ============================================================
 #  PÁGINA PRINCIPAL
 # ============================================================
 $pageRed = New-Object System.Windows.Forms.Panel
@@ -534,25 +535,13 @@ $pageRed.Dock      = [System.Windows.Forms.DockStyle]::Fill
 $pageRed.BackColor = $script:clrBackground
 $pageRed.Visible   = $false
 
-# ─── CONSOLA DE OUTPUT (fija en la parte inferior) ──────────
-$script:netOut = New-Object System.Windows.Forms.RichTextBox
-$script:netOut.Dock        = [System.Windows.Forms.DockStyle]::Bottom
-$script:netOut.Height      = 200
-$script:netOut.BackColor   = [System.Drawing.Color]::FromArgb(13, 17, 30)
-$script:netOut.ForeColor   = [System.Drawing.Color]::FromArgb(134, 239, 172)
-$script:netOut.Font        = New-Object System.Drawing.Font("Consolas", 8)
-$script:netOut.ReadOnly    = $true
-$script:netOut.BorderStyle = [System.Windows.Forms.BorderStyle]::None
-$script:netOut.ScrollBars  = [System.Windows.Forms.RichTextBoxScrollBars]::Vertical
-$script:netOut.Text        = "-- Consola de red lista. Selecciona una categoria y ejecuta un comando. --`r`n"
+# ============================================================
+#  CONSOLA FIJA EN LA PARTE INFERIOR
+#  Dock = Bottom en pageRed — permanece siempre visible.
+#  El área de categorías (viewport) ocupa el Fill restante.
+# ============================================================
 
-# Borde separador encima de la consola
-$consoleSep = New-Object System.Windows.Forms.Panel
-$consoleSep.Dock      = [System.Windows.Forms.DockStyle]::Bottom
-$consoleSep.Height    = 1
-$consoleSep.BackColor = [System.Drawing.Color]::FromArgb(40, 50, 70)
-
-# ─── TOOLBAR DE CONSOLA ─────────────────────────────────────
+# Toolbar de consola
 $consoleToolbar = New-Object System.Windows.Forms.Panel
 $consoleToolbar.Dock      = [System.Windows.Forms.DockStyle]::Bottom
 $consoleToolbar.Height    = 30
@@ -585,7 +574,6 @@ $btnCopyConsole.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.W
 $btnCopyConsole.Font   = $script:fontSmall
 
 $consoleToolbar.Controls.AddRange(@($consoleLbl, $btnClearConsole, $btnCopyConsole))
-
 $consoleToolbar.Add_Resize({
     $btnClearConsole.Location = New-Object System.Drawing.Point(($this.Width - 74), 3)
     $btnCopyConsole.Location  = New-Object System.Drawing.Point(($this.Width - 148), 3)
@@ -593,7 +581,7 @@ $consoleToolbar.Add_Resize({
 
 $btnClearConsole.Add_Click({
     $script:netOut.Clear()
-    $script:netOut.Text = "-- Consola limpiada --`r`n"
+    $script:netOut.Text       = "-- Consola limpiada --`r`n"
     $script:statusLabel.Text      = "Consola limpiada"
     $script:statusLabel.ForeColor = $script:clrTextMuted
 })
@@ -606,35 +594,106 @@ $btnCopyConsole.Add_Click({
     }
 })
 
-# ─── SCROLL PANEL PARA LAS CATEGORÍAS ───────────────────────
-$scrollRed = New-Object System.Windows.Forms.Panel
-$scrollRed.Dock       = [System.Windows.Forms.DockStyle]::Fill
-$scrollRed.AutoScroll = $true
-$scrollRed.BackColor  = $script:clrBackground
-$scrollRed.Padding    = New-Object System.Windows.Forms.Padding(0, 8, 0, 16)
+# Separador visual encima de la consola
+$consoleSep = New-Object System.Windows.Forms.Panel
+$consoleSep.Dock      = [System.Windows.Forms.DockStyle]::Bottom
+$consoleSep.Height    = 1
+$consoleSep.BackColor = [System.Drawing.Color]::FromArgb(40, 50, 70)
 
-$scrollRed.Add_Resize({
-    foreach ($ctrl in $this.Controls) {
-        if ($ctrl -is [System.Windows.Forms.Panel]) {
-            $ctrl.Width = $this.Width - 20
-        }
+# RichTextBox de salida
+$script:netOut = New-Object System.Windows.Forms.RichTextBox
+$script:netOut.Dock        = [System.Windows.Forms.DockStyle]::Bottom
+$script:netOut.Height      = 200
+$script:netOut.BackColor   = [System.Drawing.Color]::FromArgb(13, 17, 30)
+$script:netOut.ForeColor   = [System.Drawing.Color]::FromArgb(134, 239, 172)
+$script:netOut.Font        = New-Object System.Drawing.Font("Consolas", 8)
+$script:netOut.ReadOnly    = $true
+$script:netOut.BorderStyle = [System.Windows.Forms.BorderStyle]::None
+$script:netOut.ScrollBars  = [System.Windows.Forms.RichTextBoxScrollBars]::Vertical
+$script:netOut.Text        = "-- Consola de red lista. Selecciona una categoria y ejecuta un comando. --`r`n"
+
+# Añadir al pageRed en orden Bottom-first (último añadido = más abajo)
+$pageRed.Controls.Add($script:netOut)
+$pageRed.Controls.Add($consoleSep)
+$pageRed.Controls.Add($consoleToolbar)
+
+# ============================================================
+#  ÁREA DE CATEGORÍAS — SCROLL MANUAL
+#  $netViewport  (Fill, sin AutoScroll)
+#    $netVBar    (VScrollBar, Right)
+#    $netInner   (Panel, Top = -$netVBar.Value)
+#      secPanel[0..N]  apilados con Location.Y calculado
+# ============================================================
+$netViewport = New-Object System.Windows.Forms.Panel
+$netViewport.Dock       = [System.Windows.Forms.DockStyle]::Fill
+$netViewport.BackColor  = $script:clrBackground
+$netViewport.AutoScroll = $false
+
+$netVBar = New-Object System.Windows.Forms.VScrollBar
+$netVBar.Dock        = [System.Windows.Forms.DockStyle]::Right
+$netVBar.SmallChange = 20
+$netVBar.LargeChange = 80
+
+$netInner = New-Object System.Windows.Forms.Panel
+$netInner.BackColor = $script:clrBackground
+$netInner.Location  = New-Object System.Drawing.Point(0, 0)
+$netInner.AutoSize  = $false
+
+# ── Funciones de scroll ──────────────────────────────────────
+function Update-NetScrollBar {
+    $contentH  = $netInner.Height
+    $viewportH = $netViewport.ClientSize.Height
+    $innerW    = $netViewport.ClientSize.Width - $netVBar.Width
+    if ($netInner.Width -ne $innerW -and $innerW -gt 0) {
+        $netInner.Width = $innerW
+        foreach ($sp in $script:netSecPanels) { $sp.Width = $innerW }
     }
-})
-
-# ============================================================
-#  FUNCIÓN: escribir en consola con timestamp
-# ============================================================
-function Write-NetConsole {
-    param([string]$Text, [switch]$Header)
-    if ($Header) {
-        $ts = Get-Date -Format "HH:mm:ss"
-        $script:netOut.AppendText("`r`n[$ts] $Text`r`n")
+    if ($contentH -le $viewportH) {
+        $netVBar.Enabled = $false
+        $netVBar.Value   = 0
+        $netInner.Top    = 0
     } else {
-        $script:netOut.AppendText($Text)
+        $netVBar.Enabled = $true
+        $range           = $contentH - $viewportH
+        $netVBar.Maximum = $range + $netVBar.LargeChange - 1
+        if ($netVBar.Value -gt $range) { $netVBar.Value = $range }
+        $netInner.Top    = -$netVBar.Value
     }
-    $script:netOut.ScrollToCaret()
-    [System.Windows.Forms.Application]::DoEvents()
 }
+
+function Reflow-NetSections {
+    $gap = 6
+    $y   = 8
+    foreach ($sp in $script:netSecPanels) {
+        $sp.Location = New-Object System.Drawing.Point(0, $y)
+        $y += $sp.Height + $gap
+    }
+    $netInner.Height = $y + 8
+    Update-NetScrollBar
+}
+
+$netVBar.Add_Scroll({ $netInner.Top = -$netVBar.Value })
+
+$netWheelHandler = {
+    if (-not $netVBar.Enabled) { return }
+    $delta  = [int]($_.Delta / 120) * $netVBar.SmallChange * 3
+    $newVal = $netVBar.Value - $delta
+    $maxVal = $netVBar.Maximum - $netVBar.LargeChange + 1
+    if ($newVal -lt 0)       { $newVal = 0 }
+    if ($newVal -gt $maxVal) { $newVal = $maxVal }
+    $netVBar.Value = $newVal
+    $netInner.Top  = -$newVal
+}
+$netViewport.Add_MouseWheel($netWheelHandler)
+$netInner.Add_MouseWheel($netWheelHandler)
+
+$netViewport.Add_Resize({ Update-NetScrollBar })
+
+$netViewport.Controls.Add($netVBar)
+$netViewport.Controls.Add($netInner)
+
+# Añadir viewport al pageRed (Fill, ocupa el espacio restante)
+$pageRed.Controls.Add($netViewport)
 
 # ============================================================
 #  CONSTRUIR CATEGORÍAS COLAPSABLES
@@ -642,38 +701,29 @@ function Write-NetConsole {
 $cardH   = 44
 $cardGap = 5
 
-$script:netSectionPanels = @()
-
-function Reflow-NetSections {
-    $y = 0
-    foreach ($sp in $script:netSectionPanels) {
-        $sp.Location = New-Object System.Drawing.Point(0, $y)
-        $y += $sp.Height + 6
-    }
-}
+$script:netSecPanels = @()
 
 foreach ($catName in $script:netCatalog.Keys) {
     $catData  = $script:netCatalog[$catName]
     $catColor = $catData.Color
     $catCmds  = $catData.Cmds
 
-    $headerH     = 40
-    $finalBodyH  = ($catCmds.Count * ($cardH + $cardGap)) + 8
-    $expandedH   = $headerH + $finalBodyH
+    $headerH    = 40
+    $finalBodyH = ($catCmds.Count * ($cardH + $cardGap)) + 8
+    $expandedH  = $headerH + $finalBodyH
+    $collapsedH = $headerH
 
-    # ── Panel contenedor de la sección ──────────────────────
+    # ── Panel contenedor ────────────────────────────────────
     $secPanel = New-Object System.Windows.Forms.Panel
     $secPanel.BackColor = $script:clrBackground
-    $secPanel.Size      = New-Object System.Drawing.Size(1, $headerH)
-    $secPanel.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor
-                          [System.Windows.Forms.AnchorStyles]::Left -bor
-                          [System.Windows.Forms.AnchorStyles]::Right
+    $secPanel.Width     = $netInner.Width
+    $secPanel.Height    = $collapsedH
     $secPanel.Tag       = "collapsed"
 
-    # ── Cabecera de sección ──────────────────────────────────
+    # ── Cabecera coloreada ───────────────────────────────────
     $secHdr = New-Object System.Windows.Forms.Panel
     $secHdr.BackColor = $catColor
-    $secHdr.Size      = New-Object System.Drawing.Size(1, $headerH)
+    $secHdr.Size      = New-Object System.Drawing.Size($secPanel.Width, $headerH)
     $secHdr.Location  = New-Object System.Drawing.Point(0, 0)
     $secHdr.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor
                         [System.Windows.Forms.AnchorStyles]::Left -bor
@@ -721,11 +771,11 @@ foreach ($catName in $script:netCatalog.Keys) {
         }
     })
 
-    # ── Body con las cards de comandos ───────────────────────
+    # ── Body con cards de comandos ───────────────────────────
     $secBody = New-Object System.Windows.Forms.Panel
     $secBody.BackColor = $script:clrBackground
     $secBody.Location  = New-Object System.Drawing.Point(0, $headerH)
-    $secBody.Size      = New-Object System.Drawing.Size(1, 0)
+    $secBody.Size      = New-Object System.Drawing.Size($secPanel.Width, $finalBodyH)
     $secBody.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor
                          [System.Windows.Forms.AnchorStyles]::Left -bor
                          [System.Windows.Forms.AnchorStyles]::Right
@@ -745,7 +795,7 @@ foreach ($catName in $script:netCatalog.Keys) {
 
         $card = New-Object System.Windows.Forms.Panel
         $card.BackColor = $script:clrCard
-        $card.Size      = New-Object System.Drawing.Size(1, $cardH)
+        $card.Size      = New-Object System.Drawing.Size(($secBody.Width - 2), $cardH)
         $card.Location  = New-Object System.Drawing.Point(1, $bodyY)
         $card.Anchor    = [System.Windows.Forms.AnchorStyles]::Top -bor
                           [System.Windows.Forms.AnchorStyles]::Left -bor
@@ -778,9 +828,8 @@ foreach ($catName in $script:netCatalog.Keys) {
         $btn.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
         $btn.Font   = $script:fontSmall
 
-        # Capturar para closure
-        $scriptRef   = $cmdScript
-        $nameRef     = $cmdName
+        $scriptRef = $cmdScript
+        $nameRef   = $cmdName
 
         $btn.Add_Click({
             $script:statusLabel.Text      = "Ejecutando: $nameRef..."
@@ -808,14 +857,12 @@ foreach ($catName in $script:netCatalog.Keys) {
         $bodyY += $cardH + $cardGap
     }
 
-    $secBody.Size = New-Object System.Drawing.Size(1, $finalBodyH)
-
     # ── Toggle colapsar / expandir ───────────────────────────
-    $secPanelRef  = $secPanel
-    $secBodyRef   = $secBody
-    $chevRef      = $lblChevron
-    $expH         = $expandedH
-    $collH        = $headerH
+    $secPanelRef = $secPanel
+    $secBodyRef  = $secBody
+    $chevRef     = $lblChevron
+    $expH        = $expandedH
+    $collH       = $collapsedH
 
     $toggleAction = {
         if ($secPanelRef.Tag -eq "collapsed") {
@@ -823,7 +870,6 @@ foreach ($catName in $script:netCatalog.Keys) {
             $secPanelRef.Height = $expH
             $secBodyRef.Visible = $true
             $secBodyRef.Width   = $secPanelRef.Width - 2
-            $secBodyRef.Height  = $finalBodyH
             $chevRef.Text       = "^"
         } else {
             $secPanelRef.Tag    = "collapsed"
@@ -848,20 +894,14 @@ foreach ($catName in $script:netCatalog.Keys) {
         }
     })
 
-    $scrollRed.Controls.Add($secPanel)
-    $script:netSectionPanels += $secPanel
+    $netInner.Controls.Add($secPanel)
+    $script:netSecPanels += $secPanel
 }
 
-# Posición inicial (todas colapsadas)
+# Layout inicial con todas las secciones colapsadas
 Reflow-NetSections
 
 # ============================================================
-#  ENSAMBLAR PÁGINA
-#  Orden Dock: Bottom primero, Fill al final
+#  REGISTRAR PÁGINA
 # ============================================================
-$pageRed.Controls.Add($script:netOut)
-$pageRed.Controls.Add($consoleSep)
-$pageRed.Controls.Add($consoleToolbar)
-$pageRed.Controls.Add($scrollRed)
-
 $script:pages["Red"] = $pageRed
