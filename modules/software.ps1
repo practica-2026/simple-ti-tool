@@ -421,11 +421,13 @@ foreach ($secName in $script:swSections.Keys) {
     # Reposicionar etiquetas de la derecha en resize del header
     $secHeader.Add_Resize({
         $right = $this.Width - 12
-        $chev  = $this.Controls | Where-Object { $_.Text -eq "v" -or $_.Text -eq "^" }
-        $cnt   = $this.Controls | Where-Object { $_.Text -match "apps" }
-        if ($chev) { $chev.Location = New-Object System.Drawing.Point(($right - $chev.Width), $chev.Location.Y) }
-        if ($cnt)  {
-            $cntX = if ($chev) { $right - $chev.Width - $cnt.Width - 10 } else { $right - $cnt.Width }
+        $chev  = $this.Controls | Where-Object { $_.Text -eq "v" -or $_.Text -eq "^" } | Select-Object -First 1
+        $cnt   = $this.Controls | Where-Object { $_.Text -match "apps" }               | Select-Object -First 1
+        if ($chev -and $chev.Width -gt 0) {
+            $chev.Location = New-Object System.Drawing.Point(($right - $chev.Width), $chev.Location.Y)
+        }
+        if ($cnt -and $cnt.Width -gt 0) {
+            $cntX = if ($chev -and $chev.Width -gt 0) { $right - $chev.Width - $cnt.Width - 10 } else { $right - $cnt.Width }
             $cnt.Location = New-Object System.Drawing.Point($cntX, $cnt.Location.Y)
         }
     })
