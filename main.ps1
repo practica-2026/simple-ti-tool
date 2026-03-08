@@ -35,7 +35,6 @@ Invoke-Expression (Invoke-RestMethod "`$base/core/layout.ps1")
 Invoke-Expression (Invoke-RestMethod "`$base/modules/software.ps1")
 Invoke-Expression (Invoke-RestMethod "`$base/modules/sistema.ps1")
 Invoke-Expression (Invoke-RestMethod "`$base/modules/red.ps1")
-Invoke-Expression (Invoke-RestMethod "`$base/modules/inventario.ps1")
 Start-TITool
 "@
 
@@ -102,17 +101,14 @@ Invoke-Expression (Invoke-RestMethod "$base/core/ui.ps1")
 Write-Host "  [2/6] Cargando Layout..." -ForegroundColor DarkCyan
 Invoke-Expression (Invoke-RestMethod "$base/core/layout.ps1")
 
-Write-Host "  [3/6] Modulo: Software..." -ForegroundColor DarkCyan
+Write-Host "  [3/5] Modulo: Software..." -ForegroundColor DarkCyan
 Invoke-Expression (Invoke-RestMethod "$base/modules/software.ps1")
 
-Write-Host "  [4/6] Modulo: Sistema..." -ForegroundColor DarkCyan
+Write-Host "  [4/5] Modulo: Sistema..." -ForegroundColor DarkCyan
 Invoke-Expression (Invoke-RestMethod "$base/modules/sistema.ps1")
 
-Write-Host "  [5/6] Modulo: Red..." -ForegroundColor DarkCyan
+Write-Host "  [5/5] Modulo: Red..." -ForegroundColor DarkCyan
 Invoke-Expression (Invoke-RestMethod "$base/modules/red.ps1")
-
-Write-Host "  [6/6] Modulo: Inventario..." -ForegroundColor DarkCyan
-Invoke-Expression (Invoke-RestMethod "$base/modules/inventario.ps1")
 
 Write-Host ""
 Write-Host "  TI Tool listo." -ForegroundColor Green
