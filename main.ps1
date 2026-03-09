@@ -29,6 +29,7 @@ if (-not (Test-IsAdmin)) {
     # Usa -EncodedCommand para evitar problemas con comillas y caracteres especiales
     $launchScript = @"
 `$base = '$base'
+Write-Host 'Cargando TI Tool (elevado)...' -ForegroundColor Cyan
 Invoke-Expression (Invoke-RestMethod "`$base/core/ui.ps1")
 Invoke-Expression (Invoke-RestMethod "`$base/core/layout.ps1")
 Invoke-Expression (Invoke-RestMethod "`$base/modules/software.ps1")
@@ -42,11 +43,10 @@ Start-TITool
     $encoded = [Convert]::ToBase64String($bytes)
 
     try {
-        # -WindowStyle Hidden oculta la ventana de consola azul tras el UAC
+        # Lanzar una nueva ventana de PowerShell elevada con el script codificado
         $proc = Start-Process -FilePath "powershell.exe" `
-            -ArgumentList "-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand $encoded" `
+            -ArgumentList "-NoProfile -ExecutionPolicy Bypass -EncodedCommand $encoded" `
             -Verb RunAs `
-            -WindowStyle Hidden `
             -PassThru
 
         # Si el usuario acepto el UAC, la sesion actual puede cerrarse
