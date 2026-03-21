@@ -66,7 +66,7 @@ foreach ($item in $menuItems) {
     $script:navButtons[$item.Label] = $nav
 }
 
-# ── Panel inferior del sidebar: logo + versión ───────────────
+# ── Panel inferior del sidebar: versión ─────────────────────
 $sidebarBottom = New-Object System.Windows.Forms.Panel
 $sidebarBottom.Dock      = [System.Windows.Forms.DockStyle]::Bottom
 $sidebarBottom.Height    = 80
@@ -90,37 +90,7 @@ $script:sidebarFooter.TextAlign = [System.Drawing.ContentAlignment]::MiddleCente
 $script:sidebarFooter.Location  = New-Object System.Drawing.Point(0, 58)
 $script:sidebarFooter.BackColor = [System.Drawing.Color]::Transparent
 
-# PictureBox para el logo de Atlas
-$sidebarLogo = New-Object System.Windows.Forms.PictureBox
-$logoW = $script:sidebarWidth - 24    # margen horizontal
-$logoH = 44
-$logoX = [int](($script:sidebarWidth - $logoW) / 2)
-$sidebarLogo.Size      = New-Object System.Drawing.Size($logoW, $logoH)
-$sidebarLogo.Location  = New-Object System.Drawing.Point($logoX, 8)
-$sidebarLogo.SizeMode  = [System.Windows.Forms.PictureBoxSizeMode]::Zoom
-$sidebarLogo.BackColor = [System.Drawing.Color]::Transparent
-
-# Descargar el logo de forma asíncrona para no bloquear el arranque
-$logoUrl = "https://www.atlas.com.co/wp-content/uploads/2022/02/LogoAtlas.png"
-$sidebarLogoRef = $sidebarLogo
-$job = [System.Threading.Tasks.Task]::Run([System.Action]{
-    try {
-        $wc     = New-Object System.Net.WebClient
-        $bytes  = $wc.DownloadData($logoUrl)
-        $stream = New-Object System.IO.MemoryStream(,$bytes)
-        $img    = [System.Drawing.Image]::FromStream($stream)
-        # Usar Invoke para actualizar UI desde el hilo principal
-        if (-not $sidebarLogoRef.IsDisposed) {
-            $sidebarLogoRef.Invoke([System.Action]{
-                $sidebarLogoRef.Image = $img
-            })
-        }
-    } catch { <# Si no hay conexión o falla, simplemente no muestra imagen #> }
-})
-
-$sidebarBottom.Controls.Add($sidebarLogo)
 $sidebarBottom.Controls.Add($script:sidebarFooter)
-
 $script:sidebar.Controls.Add($sidebarTitle)
 $script:sidebar.Controls.Add($sidebarSep)
 $script:sidebar.Controls.Add($sidebarBottomSep)
