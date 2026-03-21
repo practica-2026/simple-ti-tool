@@ -25,11 +25,11 @@ if (-not (Test-IsAdmin)) {
     Write-Host "  Se mostrara el dialogo de UAC para elevar privilegios..." -ForegroundColor Cyan
     Write-Host ""
 
-    # Construir el script que se ejecutara elevado
+    # Construir el script que se ejecutara con permisos elevado
     # Usa -EncodedCommand para evitar problemas con comillas y caracteres especiales
     $launchScript = @"
 `$base = '$base'
-Write-Host 'Cargando TI Tool (elevado)...' -ForegroundColor Cyan
+Write-Host 'Cargando TI Tool (Con Permisos Elevados)...' -ForegroundColor Cyan
 Invoke-Expression (Invoke-RestMethod "`$base/core/ui.ps1")
 Invoke-Expression (Invoke-RestMethod "`$base/core/layout.ps1")
 Invoke-Expression (Invoke-RestMethod "`$base/modules/software.ps1")
@@ -95,10 +95,10 @@ try {
     exit 1
 }
 
-Write-Host "  [1/6] Cargando UI..." -ForegroundColor DarkCyan
+Write-Host "  [1/5] Cargando UI..." -ForegroundColor DarkCyan
 Invoke-Expression (Invoke-RestMethod "$base/core/ui.ps1")
 
-Write-Host "  [2/6] Cargando Layout..." -ForegroundColor DarkCyan
+Write-Host "  [2/5] Cargando Layout..." -ForegroundColor DarkCyan
 Invoke-Expression (Invoke-RestMethod "$base/core/layout.ps1")
 
 Write-Host "  [3/5] Modulo: Software..." -ForegroundColor DarkCyan
