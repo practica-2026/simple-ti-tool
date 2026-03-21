@@ -302,13 +302,8 @@ $swToolbarLine.BackColor = $script:clrBorder
 
 # ============================================================
 #  SISTEMA DE SCROLL MANUAL
-#  ┌─ $swViewport  (Fill, ClipChildren, sin AutoScroll) ──────┐
-#  │   ├─ $swVBar  (VScrollBar, Right)                        │
-#  │   └─ $swInner (Panel, posición Y variable según scroll)  │
-#  └──────────────────────────────────────────────────────────┘
-#
 #  $swInner contiene todos los secPanel apilados con Y manual.
-#  Su Height = suma real de alturas → siempre exacto.
+#  Su Height = suma real de alturas y es siempre exacto.
 #  $swVBar.Maximum se actualiza en cada toggle.
 #  MouseWheel en viewport y en inner ambos mueven el scroll.
 # ============================================================
@@ -391,7 +386,6 @@ $swInner.Add_MouseWheel($wheelHandler)
 
 # ── Resize del viewport ──────────────────────────────────────
 $swViewport.Add_Resize({ Update-SwScrollBar })
-
 $swViewport.Controls.Add($swVBar)
 $swViewport.Controls.Add($swInner)
 
