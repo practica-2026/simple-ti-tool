@@ -13,7 +13,7 @@
 $script:swSections = [ordered]@{
 
     "General" = [ordered]@{
-        Color = [System.Drawing.Color]::FromArgb(99, 102, 241)   # Indigo
+        Color = [System.Drawing.Color]::FromArgb(99, 102, 241)
         Sub   = [ordered]@{
             "Navegadores" = @(
                 @{ Name="Google Chrome";   Desc="Navegador web de Google";              Id="Google.Chrome" }
@@ -50,7 +50,7 @@ $script:swSections = [ordered]@{
     }
 
     "Desarrollo / DevOps" = [ordered]@{
-        Color = [System.Drawing.Color]::FromArgb(20, 184, 166)   # Teal
+        Color = [System.Drawing.Color]::FromArgb(20, 184, 166)
         Sub   = [ordered]@{
             "IDE / Editores" = @(
                 @{ Name="Visual Studio Code";        Desc="Editor de codigo de Microsoft";         Id="Microsoft.VisualStudioCode" }
@@ -84,7 +84,7 @@ $script:swSections = [ordered]@{
     }
 
     "Ciberseguridad" = [ordered]@{
-        Color = [System.Drawing.Color]::FromArgb(239, 68, 68)    # Rojo
+        Color = [System.Drawing.Color]::FromArgb(239, 68, 68)
         Sub   = [ordered]@{
             "Escaneo de red" = @(
                 @{ Name="Nmap";               Desc="Escaner de red y puertos";               Id="Nmap.Nmap" }
@@ -113,7 +113,7 @@ $script:swSections = [ordered]@{
     }
 
     "Redes (LAN / WAN)" = [ordered]@{
-        Color = [System.Drawing.Color]::FromArgb(59, 130, 246)   # Azul
+        Color = [System.Drawing.Color]::FromArgb(59, 130, 246)
         Sub   = [ordered]@{
             "Diagnostico" = @(
                 @{ Name="Wireshark";           Desc="Analizador de paquetes de red";       Id="WiresharkFoundation.Wireshark" }
@@ -136,7 +136,7 @@ $script:swSections = [ordered]@{
     }
 
     "Infraestructura / SysAdmin" = [ordered]@{
-        Color = [System.Drawing.Color]::FromArgb(168, 85, 247)   # Purpura
+        Color = [System.Drawing.Color]::FromArgb(168, 85, 247)
         Sub   = [ordered]@{
             "Administracion remota" = @(
                 @{ Name="Windows Terminal";      Desc="Terminal moderna de Microsoft";         Id="Microsoft.WindowsTerminal" }
@@ -162,7 +162,7 @@ $script:swSections = [ordered]@{
     }
 
     "Helpdesk Nivel 1" = [ordered]@{
-        Color = [System.Drawing.Color]::FromArgb(34, 197, 94)    # Verde
+        Color = [System.Drawing.Color]::FromArgb(34, 197, 94)
         Sub   = [ordered]@{
             "Acceso remoto" = @(
                 @{ Name="AnyDesk";     Desc="Escritorio remoto rapido y seguro"; Id="AnyDesk.AnyDesk" }
@@ -185,7 +185,7 @@ $script:swSections = [ordered]@{
     }
 
     "Helpdesk Nivel 2 y 3" = [ordered]@{
-        Color = [System.Drawing.Color]::FromArgb(234, 179, 8)    # Amarillo
+        Color = [System.Drawing.Color]::FromArgb(234, 179, 8)
         Sub   = [ordered]@{
             "Sysinternals Suite" = @(
                 @{ Name="Process Explorer"; Desc="Monitor avanzado de procesos";            Id="Microsoft.Sysinternals.ProcessExplorer" }
@@ -205,7 +205,7 @@ $script:swSections = [ordered]@{
     }
 
     "Herramientas Cloud" = [ordered]@{
-        Color = [System.Drawing.Color]::FromArgb(251, 146, 60)   # Naranja
+        Color = [System.Drawing.Color]::FromArgb(251, 146, 60)
         Sub   = [ordered]@{
             "AWS" = @(
                 @{ Name="AWS CLI";      Desc="Interfaz de linea de comandos de Amazon Web Services"; Id="Amazon.AWSCLI" }
@@ -222,7 +222,7 @@ $script:swSections = [ordered]@{
     }
 
     "Datos / BI" = [ordered]@{
-        Color = [System.Drawing.Color]::FromArgb(236, 72, 153)   # Rosa
+        Color = [System.Drawing.Color]::FromArgb(236, 72, 153)
         Sub   = [ordered]@{
             "Analisis y visualizacion" = @(
                 @{ Name="Power BI Desktop"; Desc="Herramienta de BI de Microsoft";               Id="Microsoft.PowerBIDesktop" }
@@ -235,7 +235,7 @@ $script:swSections = [ordered]@{
     }
 
     "Multimedia / Extra" = [ordered]@{
-        Color = [System.Drawing.Color]::FromArgb(20, 184, 166)   # Teal
+        Color = [System.Drawing.Color]::FromArgb(20, 184, 166)
         Sub   = [ordered]@{
             "Multimedia" = @(
                 @{ Name="VLC Media Player"; Desc="Reproductor multimedia universal";          Id="VideoLAN.VLC" }
