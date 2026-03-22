@@ -390,7 +390,7 @@ $script:sysTweaks = @(
 )
 
 # ============================================================
-#  PANELES LEGACY / ACCESOS DIRECTOS
+#  ACCESOS DIRECTOS
 # ============================================================
 $script:sysPanels = @(
     # Herramientas principales
@@ -435,15 +435,15 @@ $pageSistema.Visible   = $false
 
 # ============================================================
 #  SISTEMA DE SCROLL MANUAL (mismo patrón que software.ps1)
-#  $sysViewport  → Fill, sin AutoScroll
-#    $sysVBar    → VScrollBar anclado a la derecha
-#    $sysInner   → Panel contenedor, Top = -$sysVBar.Value
+#  $sysViewport  = Fill, sin AutoScroll
+#    $sysVBar    = VScrollBar anclado a la derecha
+#    $sysInner   = Panel contenedor, Top = -$sysVBar.Value
 #      [toolbar de tweaks]
 #      [sep]
 #      [header "Ajustes de Windows"]
-#      [tweakBlock  ← altura variable según categorías]
+#      [tweakBlock  = altura variable según categorías]
 #      [header "Paneles y accesos"]
-#      [panelsBlock ← altura fija]
+#      [panelsBlock = altura fija]
 # ============================================================
 
 $sysViewport = New-Object System.Windows.Forms.Panel
