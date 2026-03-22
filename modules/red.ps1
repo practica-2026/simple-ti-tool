@@ -15,7 +15,7 @@
 $script:netCatalog = [ordered]@{
 
     "IP y Adaptadores" = @{
-        Color = [System.Drawing.Color]::FromArgb(99, 102, 241)   # Indigo
+        Color = [System.Drawing.Color]::FromArgb(99, 102, 241)
         Cmds  = @(
             @{
                 Name = "ipconfig /all"
@@ -78,7 +78,7 @@ $script:netCatalog = [ordered]@{
     }
 
     "DNS" = @{
-        Color = [System.Drawing.Color]::FromArgb(20, 184, 166)   # Teal
+        Color = [System.Drawing.Color]::FromArgb(20, 184, 166)
         Cmds  = @(
             @{
                 Name = "ipconfig /flushdns"
@@ -131,7 +131,7 @@ $script:netCatalog = [ordered]@{
     }
 
     "Conectividad y Diagnostico" = @{
-        Color = [System.Drawing.Color]::FromArgb(34, 197, 94)    # Verde
+        Color = [System.Drawing.Color]::FromArgb(34, 197, 94)
         Cmds  = @(
             @{
                 Name = "Ping a Gateway"
@@ -206,7 +206,7 @@ $script:netCatalog = [ordered]@{
     }
 
     "Conexiones Activas" = @{
-        Color = [System.Drawing.Color]::FromArgb(234, 179, 8)    # Amarillo
+        Color = [System.Drawing.Color]::FromArgb(234, 179, 8)
         Cmds  = @(
             @{
                 Name = "netstat -an"
@@ -257,7 +257,7 @@ $script:netCatalog = [ordered]@{
     }
 
     "Winsock y Pila de Red" = @{
-        Color = [System.Drawing.Color]::FromArgb(239, 68, 68)    # Rojo
+        Color = [System.Drawing.Color]::FromArgb(239, 68, 68)
         Cmds  = @(
             @{
                 Name = "netsh winsock reset"
@@ -309,7 +309,7 @@ $script:netCatalog = [ordered]@{
     }
 
     "Politicas de Grupo (GPO)" = @{
-        Color = [System.Drawing.Color]::FromArgb(168, 85, 247)   # Purpura
+        Color = [System.Drawing.Color]::FromArgb(168, 85, 247)
         Cmds  = @(
             @{
                 Name = "gpupdate /force"
@@ -367,7 +367,7 @@ $script:netCatalog = [ordered]@{
     }
 
     "Kerberos y Autenticacion" = @{
-        Color = [System.Drawing.Color]::FromArgb(251, 146, 60)   # Naranja
+        Color = [System.Drawing.Color]::FromArgb(251, 146, 60)
         Cmds  = @(
             @{
                 Name = "klist purge"
@@ -418,7 +418,7 @@ $script:netCatalog = [ordered]@{
     }
 
     "Integridad del Sistema" = @{
-        Color = [System.Drawing.Color]::FromArgb(59, 130, 246)   # Azul
+        Color = [System.Drawing.Color]::FromArgb(59, 130, 246)
         Cmds  = @(
             @{
                 Name = "sfc /scannow"
@@ -474,7 +474,7 @@ $script:netCatalog = [ordered]@{
     }
 
     "Compartidos y Firewall" = @{
-        Color = [System.Drawing.Color]::FromArgb(236, 72, 153)   # Rosa
+        Color = [System.Drawing.Color]::FromArgb(236, 72, 153)
         Cmds  = @(
             @{
                 Name = "net view (recursos de red)"
@@ -527,20 +527,7 @@ $script:netCatalog = [ordered]@{
 }
 
 # ============================================================
-# ============================================================
 #  PÁGINA PRINCIPAL
-#
-#  Layout con dos contenedores independientes y altura fija:
-#
-#  $pageRed  (Fill)
-#    ├─ $netTopPanel    — categorías con scroll manual (Fill)
-#    │    ├─ $netVBar   — scrollbar derecho
-#    │    └─ $netInner  — panel interior desplazable
-#    └─ $netBottomPanel — consola fija (altura $consoleTotalH)
-#         ├─ toolbar (Limpiar / Copiar)
-#         ├─ separador
-#         └─ RichTextBox
-#
 #  $netBottomPanel tiene altura fija y se ancla abajo.
 #  $netTopPanel ocupa todo el espacio restante.
 #  Ninguno usa Dock — se posicionan con Location + Size
@@ -724,7 +711,7 @@ $netTopPanel.Controls.Add($netVBar)
 $netTopPanel.Controls.Add($netInner)
 
 # ============================================================
-#  REFLOW DEL PAGEРЕД — posiciona los dos paneles
+#  REFLOW — posiciona los dos paneles
 #  Top ocupa todo excepto los últimos $consoleTotalH px.
 #  Bottom ocupa exactamente $consoleTotalH px abajo.
 # ============================================================
